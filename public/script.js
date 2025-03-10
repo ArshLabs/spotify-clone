@@ -1,89 +1,154 @@
 document.addEventListener("DOMContentLoaded", () => {
     console.log("✅ Script Loaded");
 
-    const songsFolder = "/songs/"; // Folder where MP3s are stored
-    const imagesFolder = "/images/"; // Folder where images are stored
+    const songsFolder = "/songs/";
+    const imagesFolder = "/images/";
     let audio = new Audio();
-    let currentSong = null; // Track the currently playing song
-    let currentButton = null; // Track the currently active button
+    let currentSongIndex = -1;
+    let currentSong = null;
+    let songList = [];
+
+    const seekbar = document.querySelector(".seekbar");
+    const circle = document.querySelector(".circle");
+    let isDragging = false;
+
+    const songContainer = document.getElementById("song-container");
+    const playbarPlayButton = document.querySelector(".songbuttons img[alt='play']");
+    const playbarNextButton = document.querySelector(".songbuttons img[alt='next']");
+    const playbarPrevButton = document.querySelector(".songbuttons img[alt='prev']");
+    const songInfo = document.querySelector(".songInfo");
+    const songTime = document.querySelector(".songTime");
 
     fetch("/songs")
         .then(response => response.json())
         .then(songs => {
             console.log("🎶 Songs Loaded:", songs);
-
-            const songContainer = document.getElementById("song-container");
-            songContainer.innerHTML = "";
-
-            songs.forEach((song, index) => {
-                const songName = song.replace(/\.[^/.]+$/, ""); // Remove file extension
-                const imagePath = `${imagesFolder}${songName}.jpg`; // Auto-match image
-                const displayName = songName.split(" - ")[0];
-
-                const card = document.createElement("div");
-                card.classList.add("song-card");
-
-                card.innerHTML = `
-                    <img src="${imagePath}" alt="${songName}" onerror="this.src='/images/default.jpg';">
-                    <p>${displayName}</p>
-                    <div class="play-icon" data-song="${songsFolder}${song}">
-                        <svg class="play-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="30" height="30">
-                            <circle cx="12" cy="12" r="11" fill="#1ed760" />
-                            <path d="M10 8L16 12L10 16Z" fill="black"/>
-                        </svg>
-                    </div>
-                `;
-
-                songContainer.appendChild(card);
-            });
-
-            // Add event listeners to play buttons
-            document.querySelectorAll(".play-icon").forEach(playBtn => {
-                playBtn.addEventListener("click", function () {
-                    const songPath = this.getAttribute("data-song");
-                    togglePlayPause(songPath, this);
-                });
-            });
+            songList = songs;
+            loadLibraryUI(songs);
         })
         .catch(error => console.error("❌ Error loading songs:", error));
 
-    function togglePlayPause(songSrc, button) {
-        const playSvg = button.querySelector(".play-svg");
+    function loadLibraryUI(songs) {
+        songContainer.innerHTML = "";
+        songs.forEach((song, index) => {
+            const songName = song.replace(/\.[^/.]+$/, "");
+            const imagePath = `${imagesFolder}${songName}.jpg`;
+            const displayName = songName.split(" - ")[0];
 
-        if (currentSong !== songSrc) {
-            // New song is clicked, play it and update the button
-            if (currentButton) updateButtonToPlay(currentButton.querySelector(".play-svg")); // Reset previous button
-            audio.src = songSrc;
-            audio.play();
-            updateButtonToPause(playSvg);
-            currentSong = songSrc;
-            currentButton = button;
+            const card = document.createElement("div");
+            card.classList.add("song-card");
+
+            card.innerHTML = `
+                <img src="${imagePath}" alt="${songName}" onerror="this.src='/images/default.jpg';">
+                <p>${displayName}</p>
+                <div class="play-icon" data-index="${index}">
+                    <img src="play.svg" alt="play">
+                </div>
+            `;
+
+            songContainer.appendChild(card);
+        });
+
+        document.querySelectorAll(".play-icon").forEach(playBtn => {
+            playBtn.addEventListener("click", function () {
+                let songIndex = parseInt(this.getAttribute("data-index"));
+                playSong(songIndex);
+            });
+        });
+    }
+
+    function playSong(index) {
+        if (index < 0 || index >= songList.length) return;
+
+        currentSongIndex = index;
+        currentSong = `${songsFolder}${songList[index]}`;
+        audio.src = currentSong;
+        audio.play();
+
+        songInfo.textContent = songList[index].replace(/\.[^/.]+$/, "");
+        updatePlaybarButton(true);
+    }
+
+    function togglePlayPause() {
+        if (!currentSong) {
+            playSong(0);
         } else {
-            // Same song clicked, toggle play/pause
             if (audio.paused) {
                 audio.play();
-                updateButtonToPause(playSvg);
+                updatePlaybarButton(true);
             } else {
                 audio.pause();
-                updateButtonToPlay(playSvg);
+                updatePlaybarButton(false);
             }
         }
     }
 
-    function updateButtonToPause(svgElement) {
-        svgElement.innerHTML = `
-            <circle cx="12" cy="12" r="11" fill="#1ed760" />
-            <rect x="9.5" y="8" width="2" height="8" fill="black"/>
-            <rect x="12.5" y="8" width="2" height="8" fill="black"/>
-        `;
+    function playNextSong() {
+        let nextIndex = (currentSongIndex + 1) % songList.length;
+        playSong(nextIndex);
     }
-    
 
-    function updateButtonToPlay(svgElement) {
-        svgElement.innerHTML = `
-            <circle cx="12" cy="12" r="11" fill="#1ed760" />
-            <path d="M10 8L16 12L10 16Z" fill="black"/>
-        `;
+    function playPreviousSong() {
+        let prevIndex = (currentSongIndex - 1 + songList.length) % songList.length;
+        playSong(prevIndex);
     }
+
+    function updatePlaybarButton(isPlaying) {
+        playbarPlayButton.src = isPlaying ? "pause.svg" : "play.svg";
+        document.querySelectorAll(".play-icon img").forEach((btn, index) => {
+            btn.src = index === currentSongIndex && isPlaying ? "pause.svg" : "play.svg";
+        });
+    }
+
+    playbarPlayButton.addEventListener("click", togglePlayPause);
+    playbarNextButton.addEventListener("click", playNextSong);
+    playbarPrevButton.addEventListener("click", playPreviousSong);
+
+    function updateSeekbar() {
+        if (!isDragging && audio.duration) {
+            let progressPercent = (audio.currentTime / audio.duration) * 100;
+            document.querySelector(".progress-bar").style.width = `${progressPercent}%`;
+            document.querySelector(".circle").style.transform = `translateX(${progressPercent}%)`;
+            let minutes = Math.floor(audio.currentTime / 60);
+            let seconds = Math.floor(audio.currentTime % 60);
+            songTime.textContent = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+        }
+        requestAnimationFrame(updateSeekbar);
+    }
+    updateSeekbar();
+
+    seekbar.addEventListener("click", (event) => {
+        let seekbarRect = seekbar.getBoundingClientRect();
+        let clickPosition = event.clientX - seekbarRect.left;
+        let newTime = (clickPosition / seekbar.clientWidth) * audio.duration;
+        audio.currentTime = newTime;
+    });
+
+    function startDrag(event) {
+        isDragging = true;
+        document.addEventListener("mousemove", handleDrag);
+        document.addEventListener("mouseup", stopDrag);
+    }
+
+    function handleDrag(event) {
+        let seekbarRect = seekbar.getBoundingClientRect();
+        let clientX = event.clientX || event.touches[0].clientX;
+        let newPosition = clientX - seekbarRect.left;
+        if (newPosition < 0) newPosition = 0;
+        if (newPosition > seekbar.clientWidth) newPosition = seekbar.clientWidth;
+        circle.style.transform = `translateX(${newPosition}px)`;
+    }
+
+    function stopDrag(event) {
+        isDragging = false;
+        let seekbarRect = seekbar.getBoundingClientRect();
+        let clientX = event.clientX || event.changedTouches[0].clientX;
+        let newPosition = clientX - seekbarRect.left;
+        let newTime = (newPosition / seekbar.clientWidth) * audio.duration;
+        audio.currentTime = newTime;
+        document.removeEventListener("mousemove", handleDrag);
+        document.removeEventListener("mouseup", stopDrag);
+    }
+
+    circle.addEventListener("mousedown", startDrag);
 });
-

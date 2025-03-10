@@ -97,7 +97,9 @@
         </div>
 
 
-        <div class="right bg-grey rounded m2 pi">
+        <div class="right bg-grey rounded m2 pi" style="
+        margin: 15px;
+    ">
             <div class="header ">
                 <div class="nav">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="#000000"
@@ -168,15 +170,26 @@
 
                 </div>
                 <div class="playbar">
-                    <div class="songInfo"></div>
-                    <div class="songbuttons">
-                        <img src="prevsong.svg" alt="prev">
-                        <img src="play.svg" alt="play">
-                        <img src="nextsong.svg" alt="next">
-                    <div class="songTime"></div>
+                    <div class="seekbar">
+                        <div class="progress-bar"></div> 
+                        <div class="circle"></div>
                     </div>
+                
+                    <div class="songInfo"></div>
+                
+                    <div class="songbuttons">
+                        <img src="prevsong.svg" alt="prev" id="prev-button" class="prev-button">
+                        <img src="play.svg" alt="play" id="play-button" class="play-button" style="width: 25px;">
+
+
+                        <img src="nextsong.svg" alt="next" id="next-button" class="next-button">
+                    </div>
+                    
+                    <div class="songTime"></div>
                 </div>
+                
             </div>
+        </div>
             <script src="script.js"></script>
 </body>
 
